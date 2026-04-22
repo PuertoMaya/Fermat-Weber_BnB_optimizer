@@ -1,0 +1,67 @@
+import numpy as np
+from scipy.optimize import minimize
+from typing import Dict, Tuple, Any
+
+
+def find_optimal_center(destinations: Dict[str, Dict[str, Any]]) -> Tuple[float, float]:
+    coords = np.array([d["coords"] for d in destinations.values()])
+    weights = np.array([d["weight"] for d in destinations.values()])
+
+    def objective_function(p):
+        # minimize the sum of weighted distances to all locations
+        distances = np.linalg.norm(coords - p, axis=1)
+        return np.sum(distances * weights)
+
+    # start from the average location to speed up the solver
+    initial_guess = np.mean(coords, axis=0)
+    result = minimize(objective_function, initial_guess, method='L-BFGS-B')
+
+    return result.x[0], result.x[1]
+
+
+def generate_airbnb_url(lat: float, lon: float, checkin: str, checkout: str, guests: int) -> str:
+    # 0.005 is roughly a 500m radius bounding box
+    margin = 0.005
+
+    url = (
+        f"https://www.airbnb.es/s/Alicante/homes"
+        f"?checkin={checkin}&checkout={checkout}"
+        f"&adults={guests}"
+        f"&sw_lat={lat - margin:.5f}&sw_lng={lon - margin:.5f}"
+        f"&ne_lat={lat + margin:.5f}&ne_lng={lon + margin:.5f}"
+        f"&zoom=16&search_type=USER_MAP_MOVE"
+    )
+    return url
+
+
+if __name__ == "__main__":
+    # trip data (could pull this from a JSON or DB later)
+    trip_destinations = {
+        "Mercat Central": {"coords": [38.3481, -0.4861], "weight": 10},
+        "Basilica Santa Maria": {"coords": [38.3461, -0.4794], "weight": 10},
+        "Playa de San Juan": {"coords": [38.3748, -0.4093], "weight": 10},
+        "Magma Club": {"coords": [38.3686, -0.4472], "weight": 10},
+        "Castell Santa Barbara": {"coords": [38.3490, -0.4780], "weight": 10},
+        "Bar El Canto": {"coords": [38.3422, -0.4891], "weight": 4},
+        "Bar d'Tablas": {"coords": [38.3443, -0.4826], "weight": 4},
+        "Puerto (Tabarca)": {"coords": [38.3411, -0.4815], "weight": 4},
+    }
+
+    checkin_date = "2026-04-11"
+    checkout_date = "2026-04-12"
+    guest_count = 4
+
+    print("Calculating the best spot for the Airbnb...")
+    optimal_lat, optimal_lon = find_optimal_center(trip_destinations)
+
+    print(f"Target coordinates: {optimal_lat:.5f}, {optimal_lon:.5f}")
+
+    airbnb_url = generate_airbnb_url(
+        optimal_lat,
+        optimal_lon,
+        checkin_date,
+        checkout_date,
+        guest_count
+    )
+
+    print(f"Airbnb Link:\n{airbnb_url}")
